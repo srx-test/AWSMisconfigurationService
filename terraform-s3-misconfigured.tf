@@ -29,14 +29,14 @@ resource "random_id" "bucket_suffix" {
   byte_length = 8
 }
 
-# MISCONFIGURATION 1: Public access block disabled (allows public access)
+# REMEDIATED: Public access block enabled (blocks public access)
 resource "aws_s3_bucket_public_access_block" "misconfigured_pab" {
   bucket = aws_s3_bucket.misconfigured_bucket.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 # MISCONFIGURATION 2: Public read/write ACL
