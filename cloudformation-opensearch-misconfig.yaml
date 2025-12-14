@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Intentionally misconfigured AWS OpenSearch domain for security misconfiguration demonstration."
+
+Resources:
+  MisconfiguredOpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: "misconfigured-opensearch-cfn"
+      EngineVersion: "OpenSearch_2.11"
+      
+      ClusterConfig:
+        InstanceType: "t3.small.search"
+        InstanceCount: 1
+        DedicatedMasterEnabled: false
+        ZoneAwarenessEnabled: false
+      
+      EBSOptions:
+        EBSEnabled: true
+        VolumeType: "gp3"
+        VolumeSize: 10
+      
+      # MISCONFIGURATION 1: Public access policy - allows anyone to access
+      # OpenSearch.1 - OpenSearch domains should not be publicly accessible
+      AccessPolicies:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: "*"
+            Action: "es:*"
+            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/misconfigured-opensearch-cfn/*"
+      
+      # MISCONFIGURATION 2: No encryption at rest
+      # OpenSearch.3 - OpenSearch domains should encrypt data at rest
+      EncryptionAtRestOptions:
+        Enabled: false
+      
+      # MISCONFIGURATION 3: No node-to-node encryption
+      # OpenSearch.4 - OpenSearch domain node-to-node encryption should be enabled
+      NodeToNodeEncryptionOptions:
+        Enabled: false
+      
+      # MISCONFIGURATION 4: No HTTPS enforcement
+      # OpenSearch.8 - Connections to OpenSearch domains should be encrypted using TLS 1.2
+      DomainEndpointOptions:
+        EnforceHTTPS: false
+        TLSSecurityPolicy: "Policy-Min-TLS-1-0-2019-07"
+      
+      # MISCONFIGURATION 5: No VPC configuration - publicly accessible on internet
+      # When VPCOptions is not specified, the domain is in a public endpoint
+      
+      # MISCONFIGURATION 6: Advanced security options disabled
+      # OpenSearch.5 - OpenSearch domains should have fine-grained access control enabled
+      AdvancedSecurityOptions:
+        Enabled: false
+        InternalUserDatabaseEnabled: false
+      
+      # MISCONFIGURATION 7: No audit logs enabled
+      # OpenSearch.6 - OpenSearch domains should have audit logging enabled
+      LogPublishingOptions:
+        AUDIT_LOGS:
+          Enabled: false
+      
+      Tags:
+        - Key: "Name"
+          Value: "MisconfiguredOpenSearch"
+        - Key: "Environment"
+          Value: "SecurityTesting"
+        - Key: "Purpose"
+          Value: "Intentionally vulnerable for testing"
+
+Outputs:
+  OpenSearchDomainEndpoint:
+    Description: "OpenSearch Domain Endpoint"
+    Value: !GetAtt MisconfiguredOpenSearchDomain.DomainEndpoint
+  
+  OpenSearchDomainArn:
+    Description: "OpenSearch Domain ARN"
+    Value: !GetAtt MisconfiguredOpenSearchDomain.Arn
+  
+  SecurityWarning:
+    Description: "Security Warning"
+    Value: "WARNING: This OpenSearch domain is intentionally misconfigured with public access, no encryption, and no VPC protection!"

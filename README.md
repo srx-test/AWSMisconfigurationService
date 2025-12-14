@@ -7,10 +7,12 @@ This repository contains intentionally misconfigured AWS infrastructure files de
 ### Terraform Files
 1. **terraform-s3-misconfigured.tf** - Misconfigured S3 bucket with public access
 2. **terraform-ec2-misconfigured.tf** - Misconfigured EC2 instance with multiple security vulnerabilities
+3. **terraform-opensearch-misconfigured.tf** - Misconfigured OpenSearch domain with public access
 
 ### CloudFormation Files
-1. **cloudformation-s3-misconfigured.yaml** - Misconfigured S3 bucket using CloudFormation
-2. **cloudformation-ec2-misconfigured.yaml** - Misconfigured EC2 instance using CloudFormation
+1. **cloudformation-sg-misconfig.yaml** - Misconfigured Security Group with overly permissive rules
+2. **cloudformation-rds-misconfig.yaml** - Misconfigured RDS instance with public access
+3. **cloudformation-opensearch-misconfig.yaml** - Misconfigured OpenSearch domain with public access
 
 ## Security Misconfigurations Included
 
@@ -38,6 +40,18 @@ This repository contains intentionally misconfigured AWS infrastructure files de
 - ❌ Sudo access without password requirements
 - ❌ Sensitive information exposed via web interface
 
+### OpenSearch Domain Misconfigurations
+- ❌ Publicly accessible domain (no VPC configuration)
+- ❌ Access policy allows public access (Principal: "*")
+- ❌ No encryption at rest
+- ❌ No node-to-node encryption
+- ❌ HTTPS not enforced
+- ❌ Weak TLS policy (TLS 1.0)
+- ❌ Advanced security options disabled
+- ❌ Fine-grained access control disabled
+- ❌ Audit logging disabled
+- ❌ No VPC protection
+
 ## Usage
 
 ### Prerequisites
@@ -48,28 +62,37 @@ This repository contains intentionally misconfigured AWS infrastructure files de
 ### Terraform Deployment
 ```bash
 # For S3 misconfigured bucket
+cd /path/to/repo
 terraform init
-terraform plan -var-file="terraform-s3-misconfigured.tf"
-terraform apply -var-file="terraform-s3-misconfigured.tf"
+terraform apply -auto-approve terraform-s3-misconfigured.tf
 
 # For EC2 misconfigured instance
+cd /path/to/repo
 terraform init
-terraform plan -var-file="terraform-ec2-misconfigured.tf"
-terraform apply -var-file="terraform-ec2-misconfigured.tf"
+terraform apply -auto-approve terraform-ec2-misconfigured.tf
+
+# For OpenSearch misconfigured domain
+cd /path/to/repo
+terraform init
+terraform apply -auto-approve terraform-opensearch-misconfigured.tf
 ```
 
 ### CloudFormation Deployment
 ```bash
-# For S3 misconfigured bucket
+# For Security Group misconfigurations
 aws cloudformation create-stack \
-  --stack-name misconfigured-s3-stack \
-  --template-body file://cloudformation-s3-misconfigured.yaml
+  --stack-name misconfigured-sg-stack \
+  --template-body file://cloudformation-sg-misconfig.yaml
 
-# For EC2 misconfigured instance
+# For RDS misconfigurations
 aws cloudformation create-stack \
-  --stack-name misconfigured-ec2-stack \
-  --template-body file://cloudformation-ec2-misconfigured.yaml \
-  --capabilities CAPABILITY_NAMED_IAM
+  --stack-name misconfigured-rds-stack \
+  --template-body file://cloudformation-rds-misconfig.yaml
+
+# For OpenSearch misconfigurations
+aws cloudformation create-stack \
+  --stack-name misconfigured-opensearch-stack \
+  --template-body file://cloudformation-opensearch-misconfig.yaml
 ```
 
 ## Security Testing Tools
@@ -112,8 +135,9 @@ Always remember to clean up resources after testing:
 terraform destroy
 
 # CloudFormation cleanup
-aws cloudformation delete-stack --stack-name misconfigured-s3-stack
-aws cloudformation delete-stack --stack-name misconfigured-ec2-stack
+aws cloudformation delete-stack --stack-name misconfigured-sg-stack
+aws cloudformation delete-stack --stack-name misconfigured-rds-stack
+aws cloudformation delete-stack --stack-name misconfigured-opensearch-stack
 ```
 
 ## Contributing
