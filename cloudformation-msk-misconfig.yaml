@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Intentionally misconfigured Amazon MSK cluster for security misconfiguration demonstration - FOR SECURITY TESTING ONLY"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: "VPC ID where the MSK cluster will be deployed"
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "At least 2 subnet IDs in different availability zones"
+
+Resources:
+  # MISCONFIGURATION 1: Security group allowing Kafka access from anywhere
+  MisconfiguredMSKSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Misconfigured security group allowing public access to MSK cluster"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        # Allow Kafka plaintext from anywhere (port 9092)
+        - IpProtocol: tcp
+          FromPort: 9092
+          ToPort: 9092
+          CidrIp: 0.0.0.0/0
+          Description: "Kafka plaintext from anywhere - INSECURE!"
+        # Allow Kafka TLS from anywhere (port 9094)
+        - IpProtocol: tcp
+          FromPort: 9094
+          ToPort: 9094
+          CidrIp: 0.0.0.0/0
+          Description: "Kafka TLS from anywhere - INSECURE!"
+        # Allow Kafka SASL/SCRAM from anywhere (port 9096)
+        - IpProtocol: tcp
+          FromPort: 9096
+          ToPort: 9096
+          CidrIp: 0.0.0.0/0
+          Description: "Kafka SASL/SCRAM from anywhere - INSECURE!"
+        # Allow Kafka IAM from anywhere (port 9098)
+        - IpProtocol: tcp
+          FromPort: 9098
+          ToPort: 9098
+          CidrIp: 0.0.0.0/0
+          Description: "Kafka IAM from anywhere - INSECURE!"
+        # Allow Zookeeper from anywhere (port 2181)
+        - IpProtocol: tcp
+          FromPort: 2181
+          ToPort: 2181
+          CidrIp: 0.0.0.0/0
+          Description: "Zookeeper from anywhere - INSECURE!"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: "Allow all outbound traffic"
+      Tags:
+        - Key: Name
+          Value: "MisconfiguredMSKSecurityGroup"
+        - Key: Environment
+          Value: "SecurityTesting"
+        - Key: Purpose
+          Value: "Intentionally vulnerable for testing"
+
+  # CloudWatch log group for MSK logs
+  MSKLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/aws/msk/misconfigured-cluster-cfn"
+      RetentionInDays: 1
+
+  # MISCONFIGURATION 2: MSK cluster with public access and multiple security issues
+  MisconfiguredMSKCluster:
+    Type: AWS::MSK::Cluster
+    Properties:
+      ClusterName: "misconfigured-msk-cluster-cfn"
+      KafkaVersion: "3.5.1"
+      NumberOfBrokerNodes: 2
+      
+      BrokerNodeGroupInfo:
+        InstanceType: "kafka.t3.small"
+        ClientSubnets: !Ref SubnetIds
+        SecurityGroups:
+          - !Ref MisconfiguredMSKSecurityGroup
+        StorageInfo:
+          EBSStorageInfo:
+            VolumeSize: 10
+            # MISCONFIGURATION: Unencrypted EBS volumes (no encryption specified)
+        
+        # CRITICAL MISCONFIGURATION: Public access enabled
+        ConnectivityInfo:
+          PublicAccess:
+            Type: "SERVICE_PROVIDED_EIPS"
+      
+      # MISCONFIGURATION: Unauthenticated access allowed
+      ClientAuthentication:
+        Unauthenticated:
+          Enabled: true
+      
+      # MISCONFIGURATION: No encryption at rest and plaintext communication
+      EncryptionInfo:
+        EncryptionInTransit:
+          ClientBroker: "PLAINTEXT"
+          InCluster: false
+        # EncryptionAtRest is not configured (no KMS key specified)
+      
+      # MISCONFIGURATION: Logging disabled
+      LoggingInfo:
+        BrokerLogs:
+          CloudWatchLogs:
+            Enabled: false
+          Firehose:
+            Enabled: false
+          S3:
+            Enabled: false
+      
+      # MISCONFIGURATION: Enhanced monitoring disabled
+      EnhancedMonitoring: "DEFAULT"
+      
+      Tags:
+        Name: "MisconfiguredMSKCluster"
+        Environment: "SecurityTesting"
+        Purpose: "Intentionally vulnerable for testing"
+        Account: "13437518"
+        Region: "us-east-2"
+
+Outputs:
+  ClusterArn:
+    Description: "ARN of the misconfigured MSK cluster"
+    Value: !Ref MisconfiguredMSKCluster
+    Export:
+      Name: !Sub "${AWS::StackName}-ClusterArn"
+  
+  SecurityGroupId:
+    Description: "ID of the misconfigured security group"
+    Value: !Ref MisconfiguredMSKSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-SecurityGroupId"
+  
+  SecurityWarnings:
+    Description: "Critical security warnings about this cluster"
+    Value: |
+      ⚠️  CRITICAL SECURITY WARNINGS ⚠️
+      
+      This MSK cluster is intentionally misconfigured with the following issues:
+      
+      1. ❌ PUBLIC ACCESS ENABLED - Cluster is accessible from the internet
+      2. ❌ No encryption at rest
+      3. ❌ Plaintext client communication (no TLS)
+      4. ❌ No authentication required (unauthenticated access)
+      5. ❌ Security group allows access from 0.0.0.0/0 on all Kafka ports
+      6. ❌ Logging completely disabled
+      7. ❌ No enhanced monitoring
+      8. ❌ Unencrypted EBS volumes
+      
+      DO NOT USE THIS CONFIGURATION IN PRODUCTION!
+      This cluster is for security testing and educational purposes only.
+      
+      Account: 13437518
+      Region: us-east-2
+      Risk Score: 7/10 (CRITICAL)
