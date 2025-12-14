@@ -210,8 +210,8 @@ cf_deploy_msk() {
         aws cloudformation create-stack \
             --stack-name misconfigured-msk-stack \
             --template-body file://cloudformation-msk-misconfig.yaml \
-            --parameters ParameterKey=VpcId,ParameterValue=$vpc_id \
-                         ParameterKey=SubnetIds,ParameterValue="$subnet_1\\,$subnet_2"
+            --parameters ParameterKey=VpcId,ParameterValue="$vpc_id" \
+                         ParameterKey=SubnetIds,ParameterValue="$subnet_1,$subnet_2"
         echo "✅ CloudFormation stack deployment initiated. This may take 20-30 minutes."
         echo "✅ Check AWS console for progress."
         echo "⚠️  Remember to destroy the stack when done to avoid high charges!"

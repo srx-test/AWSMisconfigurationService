@@ -123,10 +123,8 @@ resource "aws_msk_cluster" "misconfigured_cluster" {
     unauthenticated = true
   }
 
-  # MISCONFIGURATION: No encryption at rest
+  # MISCONFIGURATION: No encryption at rest (encryption_at_rest block intentionally omitted)
   encryption_info {
-    encryption_at_rest_kms_key_arn = null
-    
     encryption_in_transit {
       client_broker = "PLAINTEXT"
       in_cluster    = false
@@ -137,8 +135,7 @@ resource "aws_msk_cluster" "misconfigured_cluster" {
   logging_info {
     broker_logs {
       cloudwatch_logs {
-        enabled   = false
-        log_group = null
+        enabled = false
       }
       firehose {
         enabled = false

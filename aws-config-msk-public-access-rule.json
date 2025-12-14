@@ -3,7 +3,7 @@
   "Description": "Checks if Amazon MSK clusters have public access disabled. This rule is COMPLIANT if the MSK cluster does not have public access enabled, and NON_COMPLIANT if public access is enabled.",
   "Source": {
     "Owner": "CUSTOM_LAMBDA",
-    "SourceIdentifier": "arn:aws:lambda:us-east-2:13437518:function:CheckMSKPublicAccess",
+    "SourceIdentifier": "arn:aws:lambda:REGION:ACCOUNT_ID:function:CheckMSKPublicAccess",
     "SourceDetails": [
       {
         "EventSource": "aws.config",
