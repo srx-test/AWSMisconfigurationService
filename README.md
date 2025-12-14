@@ -62,19 +62,19 @@ This repository contains intentionally misconfigured AWS infrastructure files de
 ### Terraform Deployment
 ```bash
 # For S3 misconfigured bucket
+cd /path/to/repo
 terraform init
-terraform plan -var-file="terraform-s3-misconfigured.tf"
-terraform apply -var-file="terraform-s3-misconfigured.tf"
+terraform apply -auto-approve terraform-s3-misconfigured.tf
 
 # For EC2 misconfigured instance
+cd /path/to/repo
 terraform init
-terraform plan -var-file="terraform-ec2-misconfigured.tf"
-terraform apply -var-file="terraform-ec2-misconfigured.tf"
+terraform apply -auto-approve terraform-ec2-misconfigured.tf
 
 # For OpenSearch misconfigured domain
+cd /path/to/repo
 terraform init
-terraform plan -var-file="terraform-opensearch-misconfigured.tf"
-terraform apply -var-file="terraform-opensearch-misconfigured.tf"
+terraform apply -auto-approve terraform-opensearch-misconfigured.tf
 ```
 
 ### CloudFormation Deployment

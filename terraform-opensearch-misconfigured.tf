@@ -74,11 +74,7 @@ resource "aws_opensearch_domain" "misconfigured_opensearch" {
   }
 
   # MISCONFIGURATION 7: Audit logs disabled
-  log_publishing_options {
-    cloudwatch_log_group_arn = ""
-    log_type                 = "AUDIT_LOGS"
-    enabled                  = false
-  }
+  # Intentionally not configuring log_publishing_options to disable audit logging
 
   tags = {
     Name        = "MisconfiguredOpenSearch"
