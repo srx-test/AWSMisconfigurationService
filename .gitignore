@@ -8,6 +8,12 @@ terraform.tfvars.json
 *.tfplan
 *.tfplan.*
 
+# Terraform working directories
+terraform-s3-work/
+terraform-ec2-work/
+terraform-asg-east-2-work/
+terraform-asg-west-2-work/
+
 # CloudFormation
 *.template
 
