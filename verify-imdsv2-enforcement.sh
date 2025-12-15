@@ -41,6 +41,13 @@ check_requirements() {
         echo "Run 'aws configure' to set up your credentials."
         exit 1
     fi
+    
+    if ! command -v jq &> /dev/null; then
+        echo -e "${YELLOW}⚠️  jq is not installed. Using AWS CLI text output for JSON parsing.${NC}"
+        HAS_JQ=false
+    else
+        HAS_JQ=true
+    fi
 }
 
 verify_instance_imdsv2() {
@@ -74,8 +81,23 @@ verify_instance_imdsv2() {
         --query 'Reservations[0].Instances[0].MetadataOptions' \
         --output json)
     
-    local http_tokens=$(echo "$metadata_options" | grep -o '"HttpTokens"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
-    local http_endpoint=$(echo "$metadata_options" | grep -o '"HttpEndpoint"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+    # Parse JSON using jq if available, otherwise use AWS CLI query directly
+    if [[ "$HAS_JQ" == true ]]; then
+        local http_tokens=$(echo "$metadata_options" | jq -r '.HttpTokens // "unknown"')
+        local http_endpoint=$(echo "$metadata_options" | jq -r '.HttpEndpoint // "unknown"')
+    else
+        # Fallback: use AWS CLI query directly for more reliable parsing
+        local http_tokens=$(aws ec2 describe-instances \
+            --region "$region" \
+            --instance-ids "$instance_id" \
+            --query 'Reservations[0].Instances[0].MetadataOptions.HttpTokens' \
+            --output text 2>/dev/null || echo "unknown")
+        local http_endpoint=$(aws ec2 describe-instances \
+            --region "$region" \
+            --instance-ids "$instance_id" \
+            --query 'Reservations[0].Instances[0].MetadataOptions.HttpEndpoint' \
+            --output text 2>/dev/null || echo "unknown")
+    fi
     
     echo -e "  HttpEndpoint: ${YELLOW}$http_endpoint${NC}"
     echo -e "  HttpTokens: ${YELLOW}$http_tokens${NC}"

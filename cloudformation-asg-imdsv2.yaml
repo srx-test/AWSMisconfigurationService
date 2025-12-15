@@ -17,12 +17,15 @@ Parameters:
     Default: 1
     Description: "Minimum number of instances in the Auto Scaling Group"
 
+# Get latest Amazon Linux 2 AMI dynamically
 Mappings:
   RegionMap:
+    # Note: These AMI IDs should be updated or use Systems Manager Parameter Store
+    # For production, use: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
     us-east-2:
-      AMI: ami-0c55b159cbfafe1f0
+      AMI: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
     us-west-2:
-      AMI: ami-0c55b159cbfafe1f0
+      AMI: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
 
 Resources:
   # Security Group for ASG instances

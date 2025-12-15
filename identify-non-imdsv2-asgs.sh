@@ -64,24 +64,37 @@ check_launch_template_imdsv2() {
     local lt_id=$2
     local lt_version=$3
     
-    # Get launch template data
-    local lt_data=$(aws ec2 describe-launch-template-versions \
-        --region "$region" \
-        --launch-template-id "$lt_id" \
-        --versions "$lt_version" \
-        --query 'LaunchTemplateVersions[0].LaunchTemplateData.MetadataOptions' \
-        --output json 2>/dev/null)
-    
-    if [[ -z "$lt_data" || "$lt_data" == "null" ]]; then
-        echo "unknown"
-        return
-    fi
-    
+    # Parse JSON using jq if available, otherwise use AWS CLI query directly
     if [[ "$HAS_JQ" == true ]]; then
+        # Get launch template data
+        local lt_data=$(aws ec2 describe-launch-template-versions \
+            --region "$region" \
+            --launch-template-id "$lt_id" \
+            --versions "$lt_version" \
+            --query 'LaunchTemplateVersions[0].LaunchTemplateData.MetadataOptions' \
+            --output json 2>/dev/null)
+        
+        if [[ -z "$lt_data" || "$lt_data" == "null" ]]; then
+            echo "unknown"
+            return
+        fi
+        
         local http_tokens=$(echo "$lt_data" | jq -r '.HttpTokens // "optional"')
         echo "$http_tokens"
     else
-        echo "$lt_data" | grep -o '"HttpTokens"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4
+        # Fallback: use AWS CLI query directly for more reliable parsing
+        local http_tokens=$(aws ec2 describe-launch-template-versions \
+            --region "$region" \
+            --launch-template-id "$lt_id" \
+            --versions "$lt_version" \
+            --query 'LaunchTemplateVersions[0].LaunchTemplateData.MetadataOptions.HttpTokens' \
+            --output text 2>/dev/null)
+        
+        if [[ -z "$http_tokens" || "$http_tokens" == "None" ]]; then
+            echo "optional"
+        else
+            echo "$http_tokens"
+        fi
     fi
 }
 
