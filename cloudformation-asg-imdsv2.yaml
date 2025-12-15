@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Auto Scaling Group with IMDSv2 Enforcement - Security Testing Configuration"
+
+Parameters:
+  DesiredCapacity:
+    Type: Number
+    Default: 1
+    Description: "Desired number of instances in the Auto Scaling Group"
+  
+  MaxSize:
+    Type: Number
+    Default: 3
+    Description: "Maximum number of instances in the Auto Scaling Group"
+  
+  MinSize:
+    Type: Number
+    Default: 1
+    Description: "Minimum number of instances in the Auto Scaling Group"
+
+# Get latest Amazon Linux 2 AMI dynamically
+Mappings:
+  RegionMap:
+    # Note: These AMI IDs should be updated or use Systems Manager Parameter Store
+    # For production, use: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+    us-east-2:
+      AMI: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
+    us-west-2:
+      AMI: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
+
+Resources:
+  # Security Group for ASG instances
+  ASGSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for ASG with IMDSv2 enforcement"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "Allow HTTP"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: "Allow HTTPS"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: "Allow all outbound"
+      Tags:
+        - Key: Name
+          Value: ASG-IMDSv2-SecurityGroup
+        - Key: Environment
+          Value: SecurityTesting
+        - Key: Purpose
+          Value: "ASG with IMDSv2 enforcement"
+
+  # Launch Template with IMDSv2 enforcement
+  IMDSv2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: imdsv2-enforced-template
+      LaunchTemplateData:
+        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+        InstanceType: t2.micro
+        SecurityGroupIds:
+          - !Ref ASGSecurityGroup
+        # SECURITY BEST PRACTICE: IMDSv2 enforcement
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required  # This enforces IMDSv2
+          HttpPutResponseHopLimit: 1  # Recommended security setting
+        # Encrypted EBS volume
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 8
+              VolumeType: gp3
+              Encrypted: true
+              DeleteOnTermination: true
+        # Enable detailed monitoring
+        Monitoring:
+          Enabled: true
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd
+            systemctl start httpd
+            systemctl enable httpd
+            
+            # Create a simple web page showing IMDSv2 usage
+            cat > /var/www/html/index.html <<'HTML'
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>IMDSv2 Enforced Instance</title>
+            </head>
+            <body>
+                <h1>IMDSv2 Enforced Auto Scaling Group Instance</h1>
+                <p>This instance is part of an Auto Scaling Group with IMDSv2 enforcement.</p>
+                <p>Region: ${AWS::Region}</p>
+                <p>Stack: ${AWS::StackName}</p>
+                <h2>Testing IMDSv2 Access</h2>
+                <p>To test metadata access, SSH to this instance and run:</p>
+                <pre>
+            # This will FAIL (IMDSv1)
+            curl http://169.254.169.254/latest/meta-data/instance-id
+
+            # This will SUCCEED (IMDSv2)
+            TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+            curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id
+                </pre>
+            </body>
+            </html>
+            HTML
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: ASG-IMDSv2-Instance
+              - Key: Environment
+                Value: SecurityTesting
+              - Key: IMDSVersion
+                Value: v2-required
+              - Key: Stack
+                Value: !Ref AWS::StackName
+
+  # Auto Scaling Group
+  IMDSv2AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: imdsv2-enforced-asg
+      DesiredCapacity: !Ref DesiredCapacity
+      MaxSize: !Ref MaxSize
+      MinSize: !Ref MinSize
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      LaunchTemplate:
+        LaunchTemplateId: !Ref IMDSv2LaunchTemplate
+        Version: !GetAtt IMDSv2LaunchTemplate.LatestVersionNumber
+      AvailabilityZones:
+        Fn::GetAZs: !Ref AWS::Region
+      Tags:
+        - Key: Name
+          Value: ASG-IMDSv2-Instance
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: SecurityTesting
+          PropagateAtLaunch: true
+        - Key: IMDSVersion
+          Value: v2-required
+          PropagateAtLaunch: true
+
+Outputs:
+  LaunchTemplateId:
+    Description: "ID of the launch template with IMDSv2 enforcement"
+    Value: !Ref IMDSv2LaunchTemplate
+    Export:
+      Name: !Sub "${AWS::StackName}-LaunchTemplateId"
+
+  LaunchTemplateVersion:
+    Description: "Latest version of the launch template"
+    Value: !GetAtt IMDSv2LaunchTemplate.LatestVersionNumber
+    Export:
+      Name: !Sub "${AWS::StackName}-LaunchTemplateVersion"
+
+  AutoScalingGroupName:
+    Description: "Name of the Auto Scaling Group"
+    Value: !Ref IMDSv2AutoScalingGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-ASGName"
+
+  SecurityGroupId:
+    Description: "Security group ID for ASG instances"
+    Value: !Ref ASGSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-SecurityGroupId"
+
+  VerificationInstructions:
+    Description: "Instructions for verifying IMDSv2 enforcement"
+    Value: |
+      
+      ===== IMDSv2 Verification Instructions =====
+      
+      1. Wait for instances to launch in the Auto Scaling Group
+      2. Get the instance ID from the ASG
+      3. Connect to the instance via SSM or EC2 Instance Connect
+      4. Run these commands to verify IMDSv2 enforcement:
+      
+      # This should FAIL (IMDSv1 not allowed):
+      curl http://169.254.169.254/latest/meta-data/instance-id
+      
+      # This should SUCCEED (IMDSv2):
+      TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+      curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id
+      
+      ============================================
